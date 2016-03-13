@@ -154,8 +154,8 @@ app.head('/:fileId', function(req, res) {
 
 _log = function() {
   if(encoder.debug) {
-// wtf is "console.log.apply" ?! this doesn't work, deal with it
-//    console.log.apply(this, arguments);
+    console.log('ENCODER:');
+    console.log.apply(console, arguments);
   }
 };
 
