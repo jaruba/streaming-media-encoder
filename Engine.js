@@ -2,7 +2,7 @@ var util = require('util'),
      EventEmitter = require('events'),
      pump = require('pump'),
      rangeParser = require('range-parser'),
-     ffmpeg = require('fluent-ffmpeg'),
+     ffmpeg = require('easy-ffmpeg'),
      Promise = require('bluebird');
 
 /**
@@ -45,13 +45,19 @@ Engine.prototype.onRequest = function(req, res) {
     res.statusCode = 200;
 
     var range;
-    if (req.headers.range) {
+    if (req.headers.range && rangeParser(this._fileSize, req.headers.range) != -1) {
         range = rangeParser(this._fileSize, req.headers.range)[0];
         res.setHeader(
           'Content-Range',
           'bytes ' + range.start + '-' + range.end + '/' + this._fileSize
         );
         res.setHeader('Content-Length', range.end - range.start + 1);
+    } else if (req.headers.range && rangeParser(this._fileSize, req.headers.range) == -1) {
+        res.setHeader(
+          'Content-Range',
+          'bytes 0-' + (this._fileSize - 1) + '/' + this._fileSize
+        );
+        res.setHeader('Content-Length', this._fileSize);
     } else {
         res.setHeader('Content-Length', this._fileSize);
     }
@@ -138,6 +144,7 @@ Engine.prototype.rescale = function(size) {
     this._profile.rescale(size);
     return this;
 };
+
 
 /**
  * Proxy forwarder for BaseDeviceProfile.prototype.hardCodeSubtitle

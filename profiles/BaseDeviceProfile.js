@@ -6,13 +6,13 @@ var Promise = require('bluebird');
 function BaseDeviceProfile() {
      
     this.audioNeedsTranscodingCodecs = []; // fill these with audio codecs that the implemented device can handle natively
-	this.videoNeedsTranscodingCodecs = []; // fill these with video codecs that the implemented device can handle natively
-	this.validFormats = []; // fill these with video formats that the implemented device can handle natively
+    this.videoNeedsTranscodingCodecs = []; // fill these with video codecs that the implemented device can handle natively
+    this.validFormats = []; // fill these with video formats that the implemented device can handle natively
 
-	this.transcodeOptions = {
-		rescaleVideo : false, // BaseDeviceProfile.prototype.rescale
-    	subtitle : false, // BaseDeviceProfile.prototype.hardCodeSubtitle
-    	audioShiftCorrect : false // BaseDeviceProfile.prototype.correctAudioOffset
+    this.transcodeOptions = {
+        rescaleVideo : false, // BaseDeviceProfile.prototype.rescale
+        subtitle : false, // BaseDeviceProfile.prototype.hardCodeSubtitle
+        audioShiftCorrect : false // BaseDeviceProfile.prototype.correctAudioOffset
     };
 
     /**
@@ -20,19 +20,19 @@ function BaseDeviceProfile() {
      * @param  {[type]} probeData [description]
      * @return {[type]}           [description]
      */
-	this.canPlayContainer = function (probeData) {
-		throw new Error("canPlayContainer : Not Implemented");
-	};
+    this.canPlayContainer = function (probeData) {
+        throw new Error("canPlayContainer : Not Implemented");
+    };
 
-	/**
-	 * Implement this method to return device specific ffmpeg flags for a probed media
-	 * @param  {object} probeData  ffmpeg probe data
-	 * @param  {[type]} forceTranscode force transcode even if native format?
-	 * @return {Promise}                [description]
-	 */
-	this.getFFmpegFlags = function (probeData, forceTranscode) {
-		throw new Error("getFFmpegFlags : Not Implemented!");
-	};
+    /**
+     * Implement this method to return device specific ffmpeg flags for a probed media
+     * @param  {object} probeData  ffmpeg probe data
+     * @param  {[type]} forceTranscode force transcode even if native format?
+     * @return {Promise}                [description]
+     */
+    this.getFFmpegFlags = function (probeData, forceTranscode) {
+        throw new Error("getFFmpegFlags : Not Implemented!");
+    };
 
 }
 
@@ -62,8 +62,8 @@ BaseDeviceProfile.prototype.hardCodeSubtitle = function(path) {
  * @return {DeviceProfile} returns `this` for fluent interfacing
  */
 BaseDeviceProfile.prototype.correctAudioOffset = function(time) {
-	this.transcodeOptions.audioShiftCorrect = '-itsoffset '+time;
-	return this;
+    this.transcodeOptions.audioShiftCorrect = '-itsoffset '+time;
+    return this;
 };
 
 /**
@@ -108,17 +108,28 @@ BaseDeviceProfile.prototype.transcodeNeeded = function(probeData) {
     var audioNeedsTranscoding = false;
     var videoNeedsTranscoding = false;
     var needsTranscoding = true;
-    var formatNeedsTranscoding = this.validFormats.indexOf(probeData.format.format_name) === -1;
+    var formatNeedsTranscoding = !probeData || !probeData.format ? true : (this.validFormats.indexOf(probeData.format.format_name) === -1);
     if (!isAudioMedia && !isVideoMedia) {
         throw new Error("Invalid media. Not video or audio.");
     }
-    if (isAudioMedia) {
-        audioNeedsTranscoding = !this.canPlayAudio(getAudioTracks(probeData));
-        needsTranscoding = audioNeedsTranscoding || videoNeedsTranscoding;
-    } else if (isVideoMedia) {
-        audioNeedsTranscoding = !this.canPlayAudio(getAudioTracks(probeData));
-        videoNeedsTranscoding = !this.canPlayVideo(getVideoTracks(probeData));
-        needsTranscoding = formatNeedsTranscoding || audioNeedsTranscoding || videoNeedsTranscoding;
+    if (!probeData) {
+        if (isAudioMedia) {
+            audioNeedsTranscoding = true;
+            needsTranscoding = true;
+        } else if (isVideoMedia) {
+            audioNeedsTranscoding = true;
+            videoNeedsTranscoding = true;
+            needsTranscoding = true;
+        }
+    } else {
+        if (isAudioMedia) {
+            audioNeedsTranscoding = !this.canPlayAudio(getAudioTracks(probeData));
+            needsTranscoding = audioNeedsTranscoding || videoNeedsTranscoding;
+        } else if (isVideoMedia) {
+            audioNeedsTranscoding = !this.canPlayAudio(getAudioTracks(probeData));
+            videoNeedsTranscoding = !this.canPlayVideo(getVideoTracks(probeData));
+            needsTranscoding = formatNeedsTranscoding || audioNeedsTranscoding || videoNeedsTranscoding;
+        }
     }
     
     return {   
@@ -136,9 +147,13 @@ BaseDeviceProfile.prototype.transcodeNeeded = function(probeData) {
  * @return {Promise} Promise that resolves with boolean
  */
 BaseDeviceProfile.prototype.canPlay = function (probeData) {
-    return this.transcodeNeeded(probeData).then(function(analyzed) {
-    	return !analyzed.needsTranscoding;
-    });
+    if (!probeData || !probeData.format) {
+        return false;
+    } else {
+        return this.transcodeNeeded(probeData).then(function(analyzed) {
+            return !analyzed.needsTranscoding;
+        });
+    }
 };
 
 
@@ -148,9 +163,13 @@ BaseDeviceProfile.prototype.canPlay = function (probeData) {
  * @return {array} array of ffmpeg video streams
  */
 var getVideoTracks = function(probeData) {
-    return (probeData.streams || []).filter(function(stream) {
-        return stream.codec_type == "video" && stream.disposition.attached_pic === 0;
-    });
+    if (!probeData || !probeData.streams) {
+        return false;
+    } else {
+        return (probeData.streams || []).filter(function(stream) {
+            return stream.codec_type == "video" && stream.disposition.attached_pic === 0;
+        });
+    }
 };
 
 /**
@@ -159,9 +178,13 @@ var getVideoTracks = function(probeData) {
  * @return {array} array of ffmpeg audio streams
  */
 var getAudioTracks = function(probeData) {
-    return (probeData.streams || []).filter(function(stream) {
-        return stream.codec_type == "audio";
-    });
+    if (!probeData || !probeData.streams) {
+        return false;
+    } else {
+        return (probeData.streams || []).filter(function(stream) {
+            return stream.codec_type == "audio";
+        });
+    }
 };
 
 /**
@@ -170,7 +193,11 @@ var getAudioTracks = function(probeData) {
  * @return {boolean} isAudio
  */
 var isAudio = function(probeData) {
-    return getAudioTracks(probeData).length > 0 && getVideoTracks(probeData).length === 0;
+    if (!probeData || !probeData.streams) {
+        return false;
+    } else {
+        return getAudioTracks(probeData).length > 0 && getVideoTracks(probeData).length === 0;
+    }
 };
 
 /**
@@ -179,7 +206,11 @@ var isAudio = function(probeData) {
  * @return {boolean} isVideo
  */
 var isVideo = function(probeData) {
-    return getVideoTracks(probeData).length > 0;
+    if (!probeData || !probeData.streams) {
+        return true; // kek, should think about this more
+    } else {
+        return getVideoTracks(probeData).length > 0;
+    }
 };
 
 

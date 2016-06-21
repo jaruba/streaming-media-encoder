@@ -4,7 +4,7 @@ var util = require('util'),
     EventEmitter = require('events'),
     Engine = require('./Engine'),
     findOpenPort = require('./find-open-port'),
-    ffmpeg = require('fluent-ffmpeg'),
+    ffmpeg = require('easy-ffmpeg'),
     net = require('net'),
     uuid = require('node-uuid'),
     app = express(),
@@ -47,6 +47,7 @@ function Encoder() {
      */
     this.profile = function(profile, fileSize) {
         // generate ID
+        uuidRequest = {};
         var id = uuid.v4();
         var engine = new Engine(profile, fileSize, id, this.getUrl(id));
         uuidRequest[id] = engine;
