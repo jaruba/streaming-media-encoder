@@ -29,8 +29,6 @@ util.inherits(Engine, EventEmitter);
 
 Engine.prototype._log = function() {
   if(this.debug) {
-    console.log('ENGINE:');
-    console.log.apply(console, arguments);
   }
 };
 
